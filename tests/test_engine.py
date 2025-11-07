@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
+from dynamic_pricing.competitors import CompetitorPriceService
 from dynamic_pricing.config import DataSourceConfig, EngineConfig, GuardrailConfig, ProductConfig
 from dynamic_pricing.data_sources import BaseMarketDataSource
 from dynamic_pricing.engine import PriceEngine
@@ -33,8 +34,8 @@ def build_frame(points: int = 24) -> pd.DataFrame:
 
 def test_engine_returns_price_for_all_products():
     products = [
-        ProductConfig(name="Test A", base_price_usd=100.0, target_margin=0.3, elasticity=0.5),
-        ProductConfig(name="Test B", base_price_usd=200.0, target_margin=0.4, elasticity=0.2),
+        ProductConfig(name="Test A", target_margin=0.3, elasticity=0.5),
+        ProductConfig(name="Test B", target_margin=0.4, elasticity=0.2),
     ]
     config = EngineConfig(
         products=products,
@@ -64,7 +65,7 @@ def test_engine_returns_price_for_all_products():
 
 
 def test_strategy_penalizes_high_volatility():
-    product = ProductConfig(name="Test", base_price_usd=100.0, target_margin=0.3, elasticity=0.3)
+    product = ProductConfig(name="Test", target_margin=0.3, elasticity=0.3)
     guardrails = GuardrailConfig(
         min_markup=0.1,
         max_markup=0.8,
@@ -112,7 +113,7 @@ def test_build_strategy_handles_market_conditions():
 
 
 def test_market_condition_strategies_shift_markup():
-    product = ProductConfig(name="Conditioned", base_price_usd=150.0, target_margin=0.35, elasticity=0.5)
+    product = ProductConfig(name="Conditioned", target_margin=0.35, elasticity=0.5)
     guardrails = GuardrailConfig(
         min_markup=0.1,
         max_markup=0.9,
@@ -148,13 +149,12 @@ def test_market_condition_strategies_shift_markup():
 def test_competitor_strategy_tracks_reference_price():
     product = ProductConfig(
         name="Competitive",
-        base_price_usd=200.0,
         target_margin=0.4,
         elasticity=0.3,
-        competitor_price_usd=220.0,
+        competitor_name="Kraken",
     )
     guardrails = GuardrailConfig(
-        min_markup=0.1,
+        min_markup=0.0,
         max_markup=0.9,
         volatility_floor=0.01,
         volatility_ceiling=0.3,
@@ -171,11 +171,18 @@ def test_competitor_strategy_tracks_reference_price():
         smoothing_window=6,
     )
     data = build_frame(30)
+    spot_price = data["price"].iloc[-1]
+    competitor_price = spot_price * 1.05
+    price_service = CompetitorPriceService({"kraken": competitor_price})
 
     balanced = PriceEngine(config, DummySource(data), strategy=VolatilityAwareStrategy()).run()[0]
-    competitor = PriceEngine(config, DummySource(data), strategy=CompetitorPriceMatchStrategy()).run()[0]
+    competitor = PriceEngine(
+        config,
+        DummySource(data),
+        strategy=CompetitorPriceMatchStrategy(match_weight=1.0, price_service=price_service),
+    ).run()[0]
 
-    target_markup = (product.competitor_price_usd / product.base_price_usd) - 1 - 0.01
+    target_markup = (competitor_price / spot_price) - 1 - 0.01
 
     assert competitor.markup <= balanced.markup
     assert abs(competitor.markup - target_markup) < 0.1

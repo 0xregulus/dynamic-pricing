@@ -1,19 +1,16 @@
 products:
   - name: Premium API Tier
-    base_price_usd: 99.0
     target_margin: 0.35
     elasticity: 0.55
-    competitor_price_usd: 129.0
+    competitor_name: Binance
   - name: Retail Payment Gateway
-    base_price_usd: 249.0
     target_margin: 0.4
     elasticity: 0.35
-    competitor_price_usd: 329.0
+    competitor_name: Kraken
   - name: OTC Liquidity Desk
-    base_price_usd: 500.0
     target_margin: 0.45
     elasticity: 0.2
-    competitor_price_usd: 675.0
+    competitor_name: Coinbase
 guardrails:
   min_markup: 0.15
   max_markup: 0.9

@@ -11,6 +11,7 @@ from typing import Optional
 
 import pandas as pd
 
+from .competitors import CompetitorPriceService
 from .config import load_config
 from .data_sources import build_market_data_source
 from .engine import PriceEngine
@@ -37,6 +38,12 @@ def _parse_args() -> argparse.Namespace:
         default="balanced",
         help="Selects a strategy tuned for the market regime or business goal",
     )
+    parser.add_argument(
+        "--competitor-provider",
+        choices=["stub", "coinmarketcap"],
+        default=os.getenv("DYNAMIC_PRICING_COMPETITOR_PROVIDER", "stub"),
+        help="Source used by the competitor strategy when fetching rival quotes",
+    )
     return parser.parse_args()
 
 
@@ -54,7 +61,15 @@ def main() -> None:
     args = _parse_args()
     config = load_config(args.config)
     data_source = build_market_data_source(config.data_source, csv_fallback=args.data)
-    strategy = build_strategy(args.market_condition)
+    competitor_service = None
+    if args.market_condition in {"competitor", "competitor_match"}:
+        competitor_service = CompetitorPriceService(
+            provider=args.competitor_provider,
+            asset=config.data_source.asset,
+            vs_currency=config.data_source.vs_currency,
+            api_key=config.data_source.api_key,
+        )
+    strategy = build_strategy(args.market_condition, competitor_service=competitor_service)
     engine = PriceEngine(config, data_source, strategy=strategy)
 
     external_data = _load_external_data(args.data)

@@ -20,10 +20,9 @@ class ProductConfig:
     """Represents a product that needs a crypto pegged selling price."""
 
     name: str
-    base_price_usd: float
     target_margin: float
     elasticity: float
-    competitor_price_usd: float | None = None
+    competitor_name: str | None = None
 
 
 @dataclass
@@ -71,12 +70,11 @@ def _load_products(raw_products: List[Dict[str, Any]]) -> List[ProductConfig]:
             products.append(
                 ProductConfig(
                     name=_require(entry, "name"),
-                    base_price_usd=float(_require(entry, "base_price_usd")),
                     target_margin=float(_require(entry, "target_margin")),
                     elasticity=float(_require(entry, "elasticity")),
-                    competitor_price_usd=(
-                        float(entry["competitor_price_usd"])
-                        if "competitor_price_usd" in entry and entry["competitor_price_usd"] is not None
+                    competitor_name=(
+                        entry.get("competitor_name").strip()
+                        if isinstance(entry.get("competitor_name"), str)
                         else None
                     ),
                 )

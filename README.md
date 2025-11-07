@@ -91,8 +91,11 @@ uv run python -m dynamic_pricing.cli \
 
 ### Configuration Notes
 
-- Each product entry can include `competitor_price_usd` to power the competitor-matching strategy.
-- Guardrails still apply to every strategy so markups never exceed safe bounds.
+- **Product catalog** – define `name`, desired `target_margin`, price `elasticity`, and optionally `competitor_name` (e.g., `Binance`, `Kraken`). The computed markup is applied to the latest market price pulled from your data source, and the competitor strategy fetches the rival quote from a stubbed data source by name.
+- **Competitor provider** – pass `--competitor-provider coinmarketcap` (or set `DYNAMIC_PRICING_COMPETITOR_PROVIDER=coinmarketcap`) plus a `COINMARKETCAP_API_KEY` to source quotes directly from CoinMarketCap's market-pairs endpoint. Leave it as `stub` to use the bundled deterministic map.
+- **Guardrails** – `min_markup`/`max_markup` keep recommendations inside a safe band, while `volatility_floor`/`volatility_ceiling` normalize risk signals.
+- **Data source** – choose `coinmarketcap` or `csv`, pick the `asset` (symbol or CoinMarketCap ID), `vs_currency`, `lookback_hours`, and optionally `api_key`/`api_url`.
+- **Smoothing window** – controls the rolling lookback (in hours) used for momentum, volatility, and averages.
 
 ## Extending
 

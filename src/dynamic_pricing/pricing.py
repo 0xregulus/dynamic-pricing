@@ -10,6 +10,7 @@ from typing import Dict, Protocol
 import numpy as np
 import pandas as pd
 
+from .competitors import CompetitorPriceService, CompetitorPricingError
 from .config import GuardrailConfig, ProductConfig
 
 
@@ -45,6 +46,7 @@ class VolatilityAwareStrategy:
         volatility = float(latest["volatility"])
         momentum = float(latest["momentum"])
         trend_strength = float(latest["trend_strength"])
+        spot_price = float(latest["price"])
 
         trend_bonus = product.elasticity * trend_strength
         momentum_bonus = 0.5 * product.elasticity * momentum
@@ -63,6 +65,7 @@ class VolatilityAwareStrategy:
             "volatility": volatility,
             "momentum": momentum,
             "trend_strength": trend_strength,
+            "spot_price": spot_price,
         }
 
         raw_markup = (
@@ -73,7 +76,7 @@ class VolatilityAwareStrategy:
             + self._condition_adjustment(product, signals)
         )
         markup = self._clamp_markup(raw_markup, guardrails)
-        price = product.base_price_usd * (1 + markup)
+        price = spot_price * (1 + markup)
 
         return PricingResult(
             product=product,
@@ -138,24 +141,40 @@ class MarketPenetrationStrategy(VolatilityAwareStrategy):
 
 
 class CompetitorPriceMatchStrategy(VolatilityAwareStrategy):
-    """Keeps the markup aligned with a known competitor reference price."""
+    """Keeps the markup aligned with a named competitor reference price."""
 
-    def __init__(self, risk_aversion: float = 1.2, match_weight: float = 0.7, undercut: float = 0.01):
+    def __init__(
+        self,
+        risk_aversion: float = 1.2,
+        match_weight: float = 0.7,
+        undercut: float = 0.01,
+        price_service: CompetitorPriceService | None = None,
+    ):
         super().__init__(risk_aversion=risk_aversion)
         self.match_weight = match_weight
         self.undercut = undercut
+        self.price_service = price_service or CompetitorPriceService()
 
     def _condition_adjustment(self, product: ProductConfig, signals: Dict[str, float]) -> float:
-        if not product.competitor_price_usd or product.competitor_price_usd <= 0:
+        if not product.competitor_name:
             return 0.0
 
-        competitor_markup = (product.competitor_price_usd / product.base_price_usd) - 1
+        try:
+            quote = self.price_service.get_price(product.competitor_name)
+        except CompetitorPricingError:
+            return 0.0
+
+        spot_price = signals.get("spot_price", 0.0)
+        if spot_price <= 0:
+            return 0.0
+
+        competitor_markup = (quote.price / spot_price) - 1
         desired_markup = competitor_markup - self.undercut
         delta = desired_markup - product.target_margin
         return self.match_weight * delta
 
 
-def build_strategy(condition: str | None) -> PricingStrategy:
+def build_strategy(condition: str | None, *, competitor_service: CompetitorPriceService | None = None) -> PricingStrategy:
     """Return a strategy tuned for the requested market condition."""
 
     normalized = (condition or "balanced").strip().lower()
@@ -170,7 +189,7 @@ def build_strategy(condition: str | None) -> PricingStrategy:
     if normalized in {"penetration", "market_penetration"}:
         return MarketPenetrationStrategy()
     if normalized in {"competitor", "competitor_match"}:
-        return CompetitorPriceMatchStrategy()
+        return CompetitorPriceMatchStrategy(price_service=competitor_service)
     raise ValueError(f"Unsupported market condition: {condition}")
 
 
