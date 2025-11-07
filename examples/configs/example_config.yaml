@@ -1,0 +1,27 @@
+products:
+  - name: Premium API Tier
+    base_price_usd: 99.0
+    target_margin: 0.35
+    elasticity: 0.55
+    competitor_price_usd: 129.0
+  - name: Retail Payment Gateway
+    base_price_usd: 249.0
+    target_margin: 0.4
+    elasticity: 0.35
+    competitor_price_usd: 329.0
+  - name: OTC Liquidity Desk
+    base_price_usd: 500.0
+    target_margin: 0.45
+    elasticity: 0.2
+    competitor_price_usd: 675.0
+guardrails:
+  min_markup: 0.15
+  max_markup: 0.9
+  volatility_floor: 0.02
+  volatility_ceiling: 0.18
+data_source:
+  provider: coinmarketcap
+  asset: BTC
+  vs_currency: USD
+  lookback_hours: 72
+smoothing_window: 12
