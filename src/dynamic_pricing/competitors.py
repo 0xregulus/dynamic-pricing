@@ -34,7 +34,6 @@ class CompetitorPriceService:
     def __init__(
         self,
         price_map: Dict[str, float] | None = None,
-        latency_ms: int = 0,
         provider: str = "stub",
         asset: str | None = None,
         vs_currency: str | None = None,
@@ -46,7 +45,7 @@ class CompetitorPriceService:
             raise ValueError(f"Unsupported competitor provider: {provider}")
 
         self.provider = provider_normalized
-        self.latency_ms = latency_ms
+        self._quote_cache: Dict[str, float] = {}
 
         if self.provider == "stub":
             mapping = price_map or DEFAULT_COMPETITOR_PRICES
@@ -70,7 +69,11 @@ class CompetitorPriceService:
             price = self._prices[key]
             return CompetitorPriceQuote(name=competitor_name, price=price)
 
+        if key in self._quote_cache:
+            return CompetitorPriceQuote(name=competitor_name, price=self._quote_cache[key])
+
         price = self._fetch_coinmarketcap_price(key)
+        self._quote_cache[key] = price
         return CompetitorPriceQuote(name=competitor_name, price=price)
 
     def _fetch_coinmarketcap_price(self, competitor_key: str) -> float:

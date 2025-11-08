@@ -12,24 +12,28 @@ This project showcases a lightweight dynamic pricing engine for merchants that s
 
 ## Quick Start
 
+### Streamlit dashboard (live data)
+
 ```bash
-# create and install (uses pyproject/requirements automatically)
 uv venv
 source .venv/bin/activate
-uv sync --dev
-
-# prepare environment (fill in COINMARKETCAP_API_KEY inside .env)
 cp .env.example .env
-$EDITOR .env
+$EDITOR .env   # fill in COINMARKETCAP_API_KEY
+make install-ui
+make dashboard
+```
 
-# run the CLI via uv (falls back to .venv/python if uv run is unavailable)
+### CLI simulation workflow
+
+```bash
 uv run python -m dynamic_pricing.cli \
   --config examples/configs/example_config.yaml \
   --data examples/data/sample_market_data.csv \
   --market-condition bull \
   --verbose
+```
 
-# pull live CoinMarketCap data (requires network access and .env key)
+```bash
 uv run python -m dynamic_pricing.cli \
   --config examples/configs/example_config.yaml \
   --market-condition balanced \
@@ -96,12 +100,14 @@ uv run python -m dynamic_pricing.cli \
 - **Guardrails** – `min_markup`/`max_markup` keep recommendations inside a safe band, while `volatility_floor`/`volatility_ceiling` normalize risk signals.
 - **Data source** – choose `coinmarketcap` or `csv`, pick the `asset` (symbol or CoinMarketCap ID), `vs_currency`, `lookback_hours`, and optionally `api_key`/`api_url`.
 - **Smoothing window** – controls the rolling lookback (in hours) used for momentum, volatility, and averages.
+- **Streamlit dashboard** – `streamlit_app.py` loads the default YAML config, pulls live candles from CoinMarketCap using your API key, and lets you tune asset, quote currency, lookback, smoothing, guardrails, competitor names, and strategy without editing files.
 
 ## Extending
 
 - Replace the CSV data source with another API by implementing `BaseMarketDataSource`.
 - Tweak the `VolatilityAwareStrategy` or plug in a new strategy subclass.
 - Integrate the engine into another service via the `PriceEngine` class.
+- Prototype guardrails and business rules visually via `streamlit_app.py`, which exposes sparkline charts and sidebar controls for strategy, guardrails, and competitor settings.
 
 ## Tests
 
